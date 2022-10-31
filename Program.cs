@@ -15,6 +15,7 @@ using System.IO;
 using NLog;
 using Newtonsoft.Json;
 using System.Threading;
+using System.Runtime.InteropServices;
 
 namespace App
 {
@@ -39,9 +40,6 @@ namespace App
         {
             try
             {
-                new Thread(TerminateHandler).Start();
-                
-
                 if (args.Length >= 1)
                 {
                     _moduleConfig = (ModuleMakerConfig)GetModuleConfiguration(args[0]);
@@ -180,6 +178,9 @@ namespace App
                 }//);
                 #endregion Suscriptions
 
+                Action<PosixSignalContext> handler = TerminateHandler;
+                PosixSignalRegistration.Create(PosixSignal.SIGTERM, handler);
+
                 #region Loop
                 foreach (ISubscriber sus in _Subcribers)
                 {
@@ -241,14 +242,15 @@ namespace App
             }
         }
         
-        static void TerminateHandler()
+        static void TerminateHandler(PosixSignalContext context)
         {
+            context.Cancel = true;
             foreach (ISubscriber sus in _Subcribers)
             {
                 sus.endLoop();
             }
             _logger.Debug("Cierre suave del modulo");
-            System.Environment.Exit(0);
+            Environment.Exit(0);
         }
     }
 }
