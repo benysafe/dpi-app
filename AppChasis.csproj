@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <OutputPath>..\Release\</OutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+    <PackageReference Include="NLog" Version="5.0.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Definitions">
+      <HintPath>..\Release\net6.0\Definitions.dll</HintPath>
+    </Reference>
+    <Reference Include="InterfaceLibraryConfigurator">
+      <HintPath>..\Release\net6.0\InterfaceLibraryConfigurator.dll</HintPath>
+    </Reference>
+    <Reference Include="InterfaceLibraryDeserializer">
+      <HintPath>..\Release\net6.0\InterfaceLibraryDeserializer.dll</HintPath>
+    </Reference>
+    <Reference Include="InterfaceLibraryLogger">
+      <HintPath>..\Release\net6.0\InterfaceLibraryLogger.dll</HintPath>
+    </Reference>
+    <Reference Include="InterfaceLibraryProcessor">
+      <HintPath>..\Release\net6.0\InterfaceLibraryProcessor.dll</HintPath>
+    </Reference>
+    <Reference Include="InterfaceLibraryPublisher">
+      <HintPath>..\Release\net6.0\InterfaceLibraryPublisher.dll</HintPath>
+    </Reference>
+    <Reference Include="InterfaceLibrarySerializer">
+      <HintPath>..\Release\net6.0\InterfaceLibrarySerializer.dll</HintPath>
+    </Reference>
+    <Reference Include="InterfaceLibrarySubscriber">
+      <HintPath>..\Release\net6.0\InterfaceLibrarySubscriber.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>
