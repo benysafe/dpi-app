@@ -16,6 +16,7 @@ using NLog;
 using Newtonsoft.Json;
 using System.Threading;
 using System.Runtime.InteropServices;
+using ModuleMakerConfig;
 
 namespace App
 {
@@ -26,7 +27,13 @@ namespace App
         public static Logger _logger;
         public static IProcessor _processor;
         public static List<ISubscriber> _Subcribers = new List<ISubscriber>();
+
         public static Dictionary<string, string> _parameters = new Dictionary<string, string>();
+
+        public static Dictionary<string, ISubscriber> _dirSubcriber = new Dictionary<string, ISubscriber>();
+        public static Dictionary<string, IDeserializer> _dirDeserializer = new Dictionary<string, IDeserializer>();
+        public static Dictionary<string, ISerializer> _dirSerializer = new Dictionary<string, ISerializer>();
+        public static Dictionary<string, IPublisher> _dirPublisher = new Dictionary<string, IPublisher>();
 
         //nombre del módulo 
         static string _moduleName;
@@ -34,7 +41,7 @@ namespace App
         static string _moduleId;
 
         //diccionario que contendra la configuracion referente al modulo
-        public static Definitions.ModuleMakerConfig _moduleConfig;
+        public static ModuleMakerConfig.ModuleMakerConfig _moduleConfig;
 
         static void Main(string[] args)
         {
@@ -42,7 +49,7 @@ namespace App
             {
                 if (args.Length >= 1)
                 {
-                    _moduleConfig = (ModuleMakerConfig)GetModuleConfiguration(args[0]);
+                    _moduleConfig = (ModuleMakerConfig.ModuleMakerConfig)GetModuleConfiguration(args[0]);
 
                     if (args.Length >= 2)
                     {
@@ -74,11 +81,11 @@ namespace App
                 if (_moduleConfig.genericLogger.libraryPath != "")
                     libraryPath = _moduleConfig.genericLogger.libraryPath;
                 else
-                    throw new Exception("Parametro erroneo");
+                    throw new Exception("Parametro 'libraryPath' en 'genericLogger' erroneo");
                 if (_moduleConfig.genericLogger.pathConfig != "")
                     configPath = _moduleConfig.genericLogger.pathConfig;
                 else
-                    throw new Exception("Parametro erroneo");
+                    throw new Exception("Parametro 'pathConfig' en 'genericLogger' erroneo");
 
                 _genericLogger = (IGenericLogger)Assembly_Load_metho<IGenericLogger>(libraryPath);
                 _genericLogger.loadConfig(configPath);
@@ -89,11 +96,11 @@ namespace App
                 if (_moduleConfig.configurator.libraryPath != "")
                     libraryPath = _moduleConfig.configurator.libraryPath;
                 else
-                    throw new Exception("Parametro erroneo");
+                    throw new Exception("Parametro 'libraryPath' en 'configurator' erroneo");
                 if (_moduleConfig.configurator.pathConfig != "")
                     configPath = _moduleConfig.configurator.pathConfig;
                 else
-                    throw new Exception("Parametro erroneo");
+                    throw new Exception("Parametro 'pathConfig' en 'configurator' erroneo");
 
                 _configurator = (IConfigurator)Assembly_Load_metho<IConfigurator>(libraryPath);
                 _configurator.init(_genericLogger);
@@ -105,78 +112,142 @@ namespace App
                 }
                 #endregion Configuration
 
-                #region Suscriptions
-                for (int i = 0; i < _moduleConfig.subscriptions.ToList().Count; i++)
-                //_moduleConfig.subscriptions.ToList().ForEach(subscriptor =>
+                #region Process
+                string processorName; 
+                string processorId;
+                if (_moduleConfig.processor.libraryPath != "")
+                    libraryPath = _moduleConfig.processor.libraryPath;
+                else
+                    throw new Exception("Parametro 'libraryPath' en 'processor' erroneo");
+                if (_moduleConfig.processor.name != "")
+                    processorName = _moduleConfig.processor.name;
+                else
+                    throw new Exception("Parametro 'name' en 'processor' erroneo");
+                if (_moduleConfig.processor.id != "")
+                    processorId = _moduleConfig.processor.id;
+                else
+                    throw new Exception("Parametro 'id' en 'processor' erroneo");
+                _processor = (IProcessor)Assembly_Load_metho<IProcessor>(libraryPath);
+
+                #endregion Process
+
+                #region Subscriptors
+                if (_moduleConfig.subscriptors.ToList().Count < 1)
+                    throw new Exception("No se definio ningun susbcriptor");
+                for (int iSubscriptors = 0; iSubscriptors < _moduleConfig.subscriptors.ToList().Count; iSubscriptors++)
                 {
-                    var subscriptor = _moduleConfig.subscriptions.ToList()[i];
+                    var subscriptor = _moduleConfig.subscriptors.ToList()[iSubscriptors];
                     libraryPath = subscriptor.libraryPath;
                     string suscriberId = subscriptor.id;
                     string suscriberName = subscriptor.name;
-                    string suscriberFunction = subscriptor.function;
                     ISubscriber suscriber = (ISubscriber)Assembly_Load_metho<ISubscriber>(libraryPath);
+                    _dirSubcriber.Add(suscriberId, suscriber);
+                }
+                #endregion Subscriptors
 
-                    #region Deserializer
-                    string deserializerId = subscriptor.deserializer.id;
-                    string deserializerName = subscriptor.deserializer.name;
-                    libraryPath = subscriptor.deserializer.libraryPath;
+                #region Deserializers
+                if (_moduleConfig.deserializers.ToList().Count < 1)
+                    throw new Exception("No se definio ningun deserializador");
+                for (int iDeserializer = 0; iDeserializer < _moduleConfig.deserializers.ToList().Count; iDeserializer++)
+                {
+                    var deseializerConfig = _moduleConfig.deserializers.ToList()[iDeserializer];
+                    libraryPath = deseializerConfig.libraryPath;
+                    string deseializerId = deseializerConfig.id;
+                    string deseializerName = deseializerConfig.name;
                     IDeserializer deserializer = (IDeserializer)Assembly_Load_metho<IDeserializer>(libraryPath);
+                    _dirDeserializer.Add(deseializerId, deserializer);
+                }
+                #endregion Deserializers
 
-                    #region Processor
-                    string processorName = subscriptor.deserializer.processor.name;
-                    string processorId = subscriptor.deserializer.processor.id;
-                    libraryPath = subscriptor.deserializer.processor.libraryPath;
-                    _processor = (IProcessor)Assembly_Load_metho<IProcessor>(libraryPath);
-
-                    #region Serializer
-                    //para modulos que no publican datos
-                    if (subscriptor.deserializer.processor.serializers.Length == 0)
+                #region Serializers
+                bool hasPublish = false;
+                if (_moduleConfig.serializers.ToList().Count > 0)
+                {
+                    hasPublish = true;
+                    for (int iSerializer = 0; iSerializer < _moduleConfig.serializers.ToList().Count; iSerializer++)
                     {
-                        _logger.Debug($"El parametro '{Definitions.App.Serializers}' no tiene asignado ningun valor");
-                        _processor.init(_configurator, _genericLogger, processorId);
+                        var serializerConfig = _moduleConfig.serializers.ToList()[iSerializer];
+                        libraryPath = serializerConfig.libraryPath;
+                        string serializerId = serializerConfig.id;
+                        string serializerName = serializerConfig.name;
+                        ISerializer serializer = (ISerializer)Assembly_Load_metho<ISerializer>(libraryPath);
+                        _dirSerializer.Add(serializerId, serializer);
                     }
-                    //para modulos que publican datos
-                    else
+                    #endregion Serializers
+
+                    #region Publishers
+                    if (_moduleConfig.publishers.ToList().Count < 0)
+                        throw new Exception("No se definio ningun publicador");
+                    for (int iPublisher = 0; iPublisher < _moduleConfig.publishers.ToList().Count; iPublisher++)
                     {
-                        for (int j = 0; j < subscriptor.deserializer.processor.serializers.ToList().Count; j++)
-                        //subscriptor.deserializer.processor.serializers.ToList().ForEach(serialize =>
+                        var publisherConfig = _moduleConfig.publishers.ToList()[iPublisher];
+                        libraryPath = publisherConfig.libraryPath;
+                        string publisherId = publisherConfig.id;
+                        string publisherName = publisherConfig.name;
+                        IPublisher publisher = (IPublisher)Assembly_Load_metho<IPublisher>(libraryPath);
+                        _dirPublisher.Add(publisherId, publisher);
+                    }
+                    #endregion Publishers
+                }
+
+                _processor.init(_configurator, _genericLogger, processorId);
+
+                #region SerializersTrees
+                if (hasPublish)
+                {
+                    if (_moduleConfig.serializers_trees.ToList().Count < 1)
+                        throw new Exception("No esta definido ningun arbor de correspondencias de serializacion");
+                    var serialisersTrees = _moduleConfig.serializers_trees.ToList();
+                    for (int indexS = 0; indexS < serialisersTrees.Count; indexS++)
+                    {
+                        string serializerId = serialisersTrees[indexS].id;
+                        if (serialisersTrees[indexS].publishers_ids.ToList().Count < 1)
+                            throw new Exception($"No esta definido ningun publicador para el serilizador '{serializerId}'");
+                        List<string> publishersIds = serialisersTrees[indexS].publishers_ids.ToList();
+                        ISerializer tempSerializer;
+                        if (!_dirSerializer.TryGetValue(serializerId, out tempSerializer))
+                            throw new Exception($"No se encontro el serializador '{serializerId}' en los serializadores instanciados");
+                        tempSerializer.init(serializerId, _configurator, _genericLogger);
+                        for (int indexP = 0; indexP < publishersIds.Count; indexP++)
                         {
-                            var serialize = subscriptor.deserializer.processor.serializers.ToList()[j];
-
-                            libraryPath = serialize.libraryPath;
-                            string serializerId = serialize.id;
-                            string serializerName = serialize.name;
-                            ISerializer serializer = (ISerializer)Assembly_Load_metho<ISerializer>(libraryPath);
-
-                            #region Publisher
-                            libraryPath = serialize.publishers.libraryPath;
-                            string publisherId = serialize.publishers.id;
-                            string publisherName = serialize.publishers.name;
-                            IPublisher publisher = (IPublisher)Assembly_Load_metho<IPublisher>(libraryPath);
-                            publisher.init(publisherId, _configurator, _genericLogger);
-                            #endregion Publisher
-
-                            serializer.init(serializerId, _configurator, publisher, _genericLogger);
-                            #endregion Serializer
-
-                            _processor.init(_configurator, _genericLogger, processorId);
-
-                            //cada serializer tiene asignado un unico publisher, 
-                            _processor.addSerializer(serializerName, serializer);
-                            #endregion Processor
-                        }//);
+                            IPublisher tempPublisher;
+                            if (!_dirPublisher.TryGetValue(publishersIds[indexP], out tempPublisher))
+                                throw new Exception($"No se encontro el publicador '{publishersIds[indexP]}' en los publicadores instanciados");
+                            tempPublisher.init(publishersIds[indexP], _configurator, _genericLogger);
+                            tempSerializer.addPublisher(publishersIds[indexP], tempPublisher);
+                        }
+                        _processor.addSerializer(tempSerializer);
                     }
+                }
+                #endregion SerializersTrees
 
-                    deserializer.init(deserializerId, _genericLogger);
-                    deserializer.addProcessor(processorName, _processor);
-                    #endregion Deserializer
-
-                    suscriber.init(suscriberId, _configurator, _genericLogger);
-                    suscriber.subscribe(suscriberFunction, deserializer);
-
-                    _Subcribers.Add(suscriber);
-                }//);
-                #endregion Suscriptions
+                #region SubscriptorsTrees
+                if (_moduleConfig.subscriptors_trees.ToList().Count < 1)
+                    throw new Exception("No esta definido ningun arbor de correspondencias de subcripciones");
+                var subscriptorTrees = _moduleConfig.subscriptors_trees.ToList();
+                for (int indexS = 0; indexS < subscriptorTrees.Count; indexS++)
+                {
+                    string subscriptorId = subscriptorTrees[indexS].id;
+                    if (subscriptorTrees[indexS].deserializers_ids.ToList().Count < 1)
+                        throw new Exception($"No esta definido ningun deserializador para el subcriptor '{subscriptorId}'");
+                    List<string> deserializerIds = subscriptorTrees[indexS].deserializers_ids.ToList();
+                    ISubscriber tempSubcriptor;
+                    if (!_dirSubcriber.TryGetValue(subscriptorId, out tempSubcriptor))
+                        throw new Exception($"No se encontro el subcriptor '{subscriptorId}' en los subcriptores instanciados");
+                    tempSubcriptor.init(subscriptorId, _configurator, _genericLogger);
+                    for (int indexP = 0; indexP < deserializerIds.Count; indexP++)
+                    {
+                        IDeserializer tempDeserializer;
+                        if (!_dirDeserializer.TryGetValue(deserializerIds[indexP], out tempDeserializer))
+                            throw new Exception($"No se encontro el deserializador '{deserializerIds[indexP]}' en los deserializadores instanciados");
+                        tempDeserializer.init(deserializerIds[indexP],_configurator, _genericLogger);
+                        tempDeserializer.addProcessor(processorName, _processor);
+                        tempSubcriptor.addDeserializer(deserializerIds[indexP], tempDeserializer);
+                    }
+                    tempSubcriptor.subscribe();
+                    _Subcribers.Add(tempSubcriptor);
+                }
+                #endregion  SubscriptorsTrees
 
                 Action<PosixSignalContext> handler = TerminateHandler;
                 PosixSignalRegistration.Create(PosixSignal.SIGTERM, handler);
@@ -185,6 +256,10 @@ namespace App
                 foreach (ISubscriber sus in _Subcribers)
                 {
                     sus.startLoop();
+                }
+                while(true)
+                {
+                    Thread.Sleep(1000); 
                 }
                 #endregion Loop
 
@@ -195,17 +270,10 @@ namespace App
             }
         }
 
-        public static Dictionary<string, TValue> ToDictionary<TValue>(object obj)
-        {
-            var json = System.Text.Json.JsonSerializer.Serialize(obj);
-            var dictionary = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, TValue>>(json); ;
-            return dictionary;
-        }
-
         public static object GetModuleConfiguration(string path)
         {
             string strJson = System.IO.File.ReadAllText(path);
-            var allConfig = JsonConvert.DeserializeObject<ModuleMakerConfig>(strJson);
+            var allConfig = JsonConvert.DeserializeObject<ModuleMakerConfig.ModuleMakerConfig>(strJson);
             return allConfig as object;
         }
 
@@ -238,7 +306,7 @@ namespace App
             }
             else
             {
-                throw new Exception($"El arguneto '{arg}' no esta definido correctamente");
+                throw new Exception($"El argumeto '{arg}' no esta definido correctamente");
             }
         }
         

@@ -11,33 +11,56 @@
 		"libraryPath": "",
 		"pathConfig": ""
 	},
-	"subscriptions": [
+	"processor" :
+	{
+		"id": "",
+		"name": "",
+		"libraryPath": ""
+	},
+	"subscriptors": [
 		{
 			"id": "",
 			"name": "",
-			"libraryPath": "",
-			"deserializer": {
-				"id": "",
-				"name": "",
-				"libraryPath": "",
-				"processor" :{
-					"id": "",
-					"name": "asignado por creador del procesador",
-					"libraryPath": "",
-					"serializers": [
-						{
-							"id": "",
-							"name": "asignado por creador del procesador",		
-							"libraryPath": "",
-							"publishers":{								
-								"id": "",
-								"name": "",
-								"libraryPath": ""
-							}
-						}
-					]
-				}
-			}
+			"libraryPath": ""
+		}
+	],
+	"deserializers": [
+		{
+			"id": "",
+			"name": "",
+			"libraryPath": ""
+		}
+	],
+	"serializers": [
+		{
+			"id": "",
+			"name": "",
+			"libraryPath": ""
+		}
+	],
+	"publishers": [
+		{
+			"id": "",
+			"name": "",
+			"libraryPath": ""
+		}
+	],
+	"subscriptors_trees": [
+		{
+			"id": "", 
+			"deserializers_ids": 
+			[
+				"idDeserializer"
+			]
+		}
+	],
+	"serializers_trees": [
+		{
+			"id": "", 
+			"publishers_ids": 
+			[
+				"idPublisher"
+			]
 		}
 	]
 }
