@@ -244,7 +244,14 @@ namespace App
                         tempDeserializer.addProcessor(processorName, _processor);
                         tempSubcriptor.addDeserializer(deserializerIds[indexP], tempDeserializer);
                     }
-                    tempSubcriptor.subscribe();
+                    if (args.Length >= 2)
+                    {
+                        tempSubcriptor.subscribe(_parameters["subId"]);
+                    }
+                    else
+                    {
+                        tempSubcriptor.subscribe();
+                    }
                     _Subcribers.Add(tempSubcriptor);
                 }
                 #endregion  SubscriptorsTrees
