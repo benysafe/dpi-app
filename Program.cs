@@ -53,7 +53,7 @@ namespace App
 
                     if (args.Length >= 2)
                     {
-                        for (int i = 1; i < args.Length + 1; i++)
+                        for (int i = 1; i < args.Length; i++)
                         {
                             string key;
                             string value;
@@ -161,7 +161,7 @@ namespace App
 
                 #region Serializers
                 bool hasPublish = false;
-                if (_moduleConfig.serializers.ToList().Count > 0)
+                if (_moduleConfig.serializers is not null && _moduleConfig.serializers.ToList().Count > 0)
                 {
                     hasPublish = true;
                     for (int iSerializer = 0; iSerializer < _moduleConfig.serializers.ToList().Count; iSerializer++)
@@ -189,7 +189,6 @@ namespace App
                     }
                     #endregion Publishers
                 }
-
                 _processor.init(_configurator, _genericLogger, processorId);
 
                 #region SerializersTrees
@@ -244,13 +243,13 @@ namespace App
                         tempDeserializer.addProcessor(processorName, _processor);
                         tempSubcriptor.addDeserializer(deserializerIds[indexP], tempDeserializer);
                     }
-                    if (args.Length >= 2)
+                    if (_parameters.Keys.Contains("subId"))
                     {
                         tempSubcriptor.subscribe(_parameters["subId"]);
                     }
                     else
                     {
-                        tempSubcriptor.subscribe();
+                        tempSubcriptor.subscribe(null);
                     }
                     _Subcribers.Add(tempSubcriptor);
                 }
@@ -274,6 +273,7 @@ namespace App
             catch (Exception ex)
             {
                 _logger.Error(ex.ToString());
+                throw ex;
             }
         }
 
