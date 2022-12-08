@@ -20,9 +20,6 @@
     <Reference Include="Definitions">
       <HintPath>..\Release\net6.0\Definitions.dll</HintPath>
     </Reference>
-    <Reference Include="Gearman">
-      <HintPath>..\Release\net6.0\Gearman.dll</HintPath>
-    </Reference>
     <Reference Include="InterfaceLibraryConfigurator">
       <HintPath>..\Release\net6.0\InterfaceLibraryConfigurator.dll</HintPath>
     </Reference>
@@ -43,9 +40,6 @@
     </Reference>
     <Reference Include="InterfaceLibrarySubscriber">
       <HintPath>..\Release\net6.0\InterfaceLibrarySubscriber.dll</HintPath>
-    </Reference>
-    <Reference Include="WebSocketServer">
-      <HintPath>..\Release\net6.0\WebSocketServer.dll</HintPath>
     </Reference>
   </ItemGroup>
 

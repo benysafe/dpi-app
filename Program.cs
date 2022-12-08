@@ -87,7 +87,7 @@ namespace App
                 else
                     throw new Exception("Parametro 'pathConfig' en 'genericLogger' erroneo");
 
-                _genericLogger = (IGenericLogger)Assembly_Load_metho<IGenericLogger>(libraryPath);
+                _genericLogger = (IGenericLogger)Assembly_Load_method<IGenericLogger>(libraryPath);
                 _genericLogger.loadConfig(configPath);
                 _logger = (Logger)_genericLogger.init(_moduleName);
                 #endregion Logger
@@ -102,7 +102,7 @@ namespace App
                 else
                     throw new Exception("Parametro 'pathConfig' en 'configurator' erroneo");
 
-                _configurator = (IConfigurator)Assembly_Load_metho<IConfigurator>(libraryPath);
+                _configurator = (IConfigurator)Assembly_Load_method<IConfigurator>(libraryPath);
                 _configurator.init(_genericLogger);
                 _configurator.load(configPath);
 
@@ -127,7 +127,7 @@ namespace App
                     processorId = _moduleConfig.processor.id;
                 else
                     throw new Exception("Parametro 'id' en 'processor' erroneo");
-                _processor = (IProcessor)Assembly_Load_metho<IProcessor>(libraryPath);
+                _processor = (IProcessor)Assembly_Load_method<IProcessor>(libraryPath);
 
                 #endregion Process
 
@@ -140,7 +140,7 @@ namespace App
                     libraryPath = subscriptor.libraryPath;
                     string suscriberId = subscriptor.id;
                     string suscriberName = subscriptor.name;
-                    ISubscriber suscriber = (ISubscriber)Assembly_Load_metho<ISubscriber>(libraryPath);
+                    ISubscriber suscriber = (ISubscriber)Assembly_Load_method<ISubscriber>(libraryPath);
                     _dirSubcriber.Add(suscriberId, suscriber);
                 }
                 #endregion Subscriptors
@@ -154,7 +154,7 @@ namespace App
                     libraryPath = deseializerConfig.libraryPath;
                     string deseializerId = deseializerConfig.id;
                     string deseializerName = deseializerConfig.name;
-                    IDeserializer deserializer = (IDeserializer)Assembly_Load_metho<IDeserializer>(libraryPath);
+                    IDeserializer deserializer = (IDeserializer)Assembly_Load_method<IDeserializer>(libraryPath);
                     _dirDeserializer.Add(deseializerId, deserializer);
                 }
                 #endregion Deserializers
@@ -170,7 +170,7 @@ namespace App
                         libraryPath = serializerConfig.libraryPath;
                         string serializerId = serializerConfig.id;
                         string serializerName = serializerConfig.name;
-                        ISerializer serializer = (ISerializer)Assembly_Load_metho<ISerializer>(libraryPath);
+                        ISerializer serializer = (ISerializer)Assembly_Load_method<ISerializer>(libraryPath);
                         _dirSerializer.Add(serializerId, serializer);
                     }
                     #endregion Serializers
@@ -184,7 +184,7 @@ namespace App
                         libraryPath = publisherConfig.libraryPath;
                         string publisherId = publisherConfig.id;
                         string publisherName = publisherConfig.name;
-                        IPublisher publisher = (IPublisher)Assembly_Load_metho<IPublisher>(libraryPath);
+                        IPublisher publisher = (IPublisher)Assembly_Load_method<IPublisher>(libraryPath);
                         _dirPublisher.Add(publisherId, publisher);
                     }
                     #endregion Publishers
@@ -284,23 +284,65 @@ namespace App
             return allConfig as object;
         }
 
-        public static T Assembly_Load_metho<T>(string path)
+        public static T Assembly_Load_method<T>(string path)
         {
-            Assembly miExtensionAssembly = Assembly.LoadFile(path);
-            List<Type> types = miExtensionAssembly.GetExportedTypes().ToList();
+            //Obtiene los ensamblados cargados dentro del dominio de aplicacion del hilo actual
+            var loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
 
-            if (!types.Any(eleTypes => eleTypes.GetTypeInfo().GetInterfaces().ToList().Any(eleInter => eleInter.FullName.Equals(typeof(T).FullName))))
+            //obtener el ensamblado de la biblioteca cargada y agrega al dominio de aplicacion del hilo actual 
+            Assembly assemblyToLoad = Assembly.LoadFrom(Path.GetFullPath(path));            
+            AppDomain.CurrentDomain.Load(assemblyToLoad.GetName());
+
+            List<Type> typesExported = assemblyToLoad.GetExportedTypes().ToList(); 
+            if (!typesExported.Any(eleTypes => eleTypes.GetTypeInfo().GetInterfaces().ToList().Any(eleInter => eleInter.FullName.Equals(typeof(T).FullName))))
             {
                 throw new Exception($"no se encontro implementacion de la interfas '{typeof(T).FullName}', en el ensamblado {path}");
             }
 
-            string typeFullName = types.Find(eleTypes => eleTypes.GetTypeInfo().GetInterfaces().ToList().Any(eleInter => eleInter.FullName.Equals(typeof(T).FullName))).FullName;
+            string typeFullName = typesExported.Find(eleTypes => eleTypes.GetTypeInfo().GetInterfaces().ToList().Any(eleInter => eleInter.FullName.Equals(typeof(T).FullName))).FullName;
 
-            Type miExtensionType = miExtensionAssembly.GetType(typeFullName);
-            object miExtensionObjeto = Activator.CreateInstance(miExtensionType);
-
-            return (T)miExtensionObjeto;
+            LoadReferencedAssemblies(assemblyToLoad);
+            // Retorna una nueva instancia de <T> dado su nombre
+            return (T) Activator.CreateInstance(assemblyToLoad.GetType(typeFullName));
         }
+
+        private static void LoadReferencedAssemblies(Assembly assemblyToLoad)
+        {
+            AssemblyName[] referencedAssemblies = assemblyToLoad.GetReferencedAssemblies();
+            var loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
+
+            foreach (AssemblyName currentAssemblyName in referencedAssemblies)
+            {
+                var loadedAssembly = loadedAssemblies.FirstOrDefault(loadedAssembly => loadedAssembly.FullName == currentAssemblyName.FullName);
+
+                if (loadedAssembly == null)
+                {
+                    Assembly referencedAssembly = null;
+                    try
+                    {
+                        //First try to load using the assembly name just in case its a system dll    
+                        referencedAssembly= Assembly.Load(currentAssemblyName);
+                    }
+                    catch (FileNotFoundException ex)
+                    {
+                        try
+                        {
+                            referencedAssembly = Assembly.LoadFrom(Path.Join(Path.GetDirectoryName(assemblyToLoad.Location), currentAssemblyName.Name + ".dll"));
+                        }
+                        catch (Exception) 
+                        {                          
+                        }
+                    }
+
+                    if (referencedAssembly != null)
+                    {
+                        LoadReferencedAssemblies(referencedAssembly);
+                        AppDomain.CurrentDomain.Load(referencedAssembly.GetName());
+                    } 
+                }
+            }
+        }
+
 
         public static bool getParameter(string arg, out string key, out string value)
         {
