@@ -240,7 +240,7 @@ namespace App
                         if (!_dirDeserializer.TryGetValue(deserializerIds[indexP], out tempDeserializer))
                             throw new Exception($"No se encontro el deserializador '{deserializerIds[indexP]}' en los deserializadores instanciados");
                         tempDeserializer.init(deserializerIds[indexP],_configurator, _genericLogger);
-                        tempDeserializer.addProcessor(processorName, _processor);
+                        tempDeserializer.addProcessor( _processor);
                         tempSubcriptor.addDeserializer(deserializerIds[indexP], tempDeserializer);
                     }
                     if (_parameters.Keys.Contains("subId"))
