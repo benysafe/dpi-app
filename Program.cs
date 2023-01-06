@@ -113,7 +113,7 @@ namespace App
                 #endregion Configuration
 
                 #region Process
-                string processorName; 
+                string processorName;
                 string processorId;
                 if (_moduleConfig.processor.libraryPath != "")
                     libraryPath = _moduleConfig.processor.libraryPath;
@@ -239,8 +239,8 @@ namespace App
                         IDeserializer tempDeserializer;
                         if (!_dirDeserializer.TryGetValue(deserializerIds[indexP], out tempDeserializer))
                             throw new Exception($"No se encontro el deserializador '{deserializerIds[indexP]}' en los deserializadores instanciados");
-                        tempDeserializer.init(deserializerIds[indexP],_configurator, _genericLogger);
-                        tempDeserializer.addProcessor( _processor);
+                        tempDeserializer.init(deserializerIds[indexP], _configurator, _genericLogger);
+                        tempDeserializer.addProcessor(_processor);
                         tempSubcriptor.addDeserializer(deserializerIds[indexP], tempDeserializer);
                     }
                     if (_parameters.Keys.Contains("subId"))
@@ -258,17 +258,15 @@ namespace App
                 Action<PosixSignalContext> handler = TerminateHandler;
                 PosixSignalRegistration.Create(PosixSignal.SIGTERM, handler);
 
+
                 #region Loop
                 foreach (ISubscriber sus in _Subcribers)
                 {
-                    sus.startLoop();
-                }
-                while(true)
-                {
-                    Thread.Sleep(1000); 
+                    Thread threadSubcriptor = new Thread(sus.startLoop);
+                    threadSubcriptor.IsBackground = false;
+                    threadSubcriptor.Start();
                 }
                 #endregion Loop
-
             }
             catch (Exception ex)
             {
@@ -290,10 +288,10 @@ namespace App
             var loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
 
             //obtener el ensamblado de la biblioteca cargada y agrega al dominio de aplicacion del hilo actual 
-            Assembly assemblyToLoad = Assembly.LoadFrom(Path.GetFullPath(path));            
+            Assembly assemblyToLoad = Assembly.LoadFrom(Path.GetFullPath(path));
             AppDomain.CurrentDomain.Load(assemblyToLoad.GetName());
 
-            List<Type> typesExported = assemblyToLoad.GetExportedTypes().ToList(); 
+            List<Type> typesExported = assemblyToLoad.GetExportedTypes().ToList();
             if (!typesExported.Any(eleTypes => eleTypes.GetTypeInfo().GetInterfaces().ToList().Any(eleInter => eleInter.FullName.Equals(typeof(T).FullName))))
             {
                 throw new Exception($"no se encontro implementacion de la interfas '{typeof(T).FullName}', en el ensamblado {path}");
@@ -303,7 +301,7 @@ namespace App
 
             LoadReferencedAssemblies(assemblyToLoad);
             // Retorna una nueva instancia de <T> dado su nombre
-            return (T) Activator.CreateInstance(assemblyToLoad.GetType(typeFullName));
+            return (T)Activator.CreateInstance(assemblyToLoad.GetType(typeFullName));
         }
 
         private static void LoadReferencedAssemblies(Assembly assemblyToLoad)
@@ -321,7 +319,7 @@ namespace App
                     try
                     {
                         //First try to load using the assembly name just in case its a system dll    
-                        referencedAssembly= Assembly.Load(currentAssemblyName);
+                        referencedAssembly = Assembly.Load(currentAssemblyName);
                     }
                     catch (FileNotFoundException ex)
                     {
@@ -329,8 +327,8 @@ namespace App
                         {
                             referencedAssembly = Assembly.LoadFrom(Path.Join(Path.GetDirectoryName(assemblyToLoad.Location), currentAssemblyName.Name + ".dll"));
                         }
-                        catch (Exception) 
-                        {                          
+                        catch (Exception)
+                        {
                         }
                     }
 
@@ -338,11 +336,10 @@ namespace App
                     {
                         LoadReferencedAssemblies(referencedAssembly);
                         AppDomain.CurrentDomain.Load(referencedAssembly.GetName());
-                    } 
+                    }
                 }
             }
         }
-
 
         public static bool getParameter(string arg, out string key, out string value)
         {
@@ -358,7 +355,7 @@ namespace App
                 throw new Exception($"El argumeto '{arg}' no esta definido correctamente");
             }
         }
-        
+
         static void TerminateHandler(PosixSignalContext context)
         {
             context.Cancel = true;
