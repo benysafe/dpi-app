@@ -79,17 +79,22 @@ namespace App
 
                 #region Logger
                 if (_moduleConfig.genericLogger.libraryPath != "")
+                {
                     libraryPath = _moduleConfig.genericLogger.libraryPath;
+                }
                 else
                     throw new Exception("Parametro 'libraryPath' en 'genericLogger' erroneo");
                 if (_moduleConfig.genericLogger.pathConfig != "")
+                {
                     configPath = _moduleConfig.genericLogger.pathConfig;
+                }
                 else
                     throw new Exception("Parametro 'pathConfig' en 'genericLogger' erroneo");
 
                 _genericLogger = (IGenericLogger)Assembly_Load_method<IGenericLogger>(libraryPath);
                 _genericLogger.loadConfig(configPath);
                 _logger = (Logger)_genericLogger.init(_moduleName);
+
                 #endregion Logger
 
                 #region Configuration
@@ -271,6 +276,7 @@ namespace App
             catch (Exception ex)
             {
                 _logger.Error(ex.ToString());
+
                 throw ex;
             }
         }
@@ -284,6 +290,10 @@ namespace App
 
         public static T Assembly_Load_method<T>(string path)
         {
+            if(!File.Exists(path))
+            {
+                throw new FileNotFoundException(path);
+            }
             //Obtiene los ensamblados cargados dentro del dominio de aplicacion del hilo actual
             var loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
 
