@@ -21,6 +21,9 @@
     <Reference Include="Definitions">
       <HintPath>..\Release\net6.0\Definitions.dll</HintPath>
     </Reference>
+    <Reference Include="DinamicLoad">
+      <HintPath>..\Release\net6.0\DinamicLoad.dll</HintPath>
+    </Reference>
     <Reference Include="InterfaceLibraryConfigurator">
       <HintPath>..\Release\net6.0\InterfaceLibraryConfigurator.dll</HintPath>
     </Reference>
