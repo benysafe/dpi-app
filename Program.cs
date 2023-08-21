@@ -28,6 +28,8 @@ namespace App
         public static Logger _logger;
         public static IProcessor _processor;
         public static List<ISubscriber> _Subcribers = new List<ISubscriber>();
+        private static bool hasSuscriptor;
+
 
         public static Dictionary<string, string> _parameters = new Dictionary<string, string>();
 
@@ -64,6 +66,7 @@ namespace App
                             }
                         }
                     }
+
                 }
                 else
                 {
@@ -82,21 +85,26 @@ namespace App
                 if (_moduleConfig.genericLogger.libraryPath != "")
                 {
                     libraryPath = _moduleConfig.genericLogger.libraryPath;
+
                 }
                 else
                     throw new Exception("Parametro 'libraryPath' en 'genericLogger' erroneo");
                 if (_moduleConfig.genericLogger.pathConfig != "")
                 {
                     configPath = _moduleConfig.genericLogger.pathConfig;
+
                 }
                 else
                     throw new Exception("Parametro 'pathConfig' en 'genericLogger' erroneo");
-
                 _genericLogger = (IGenericLogger)DinamicLoad.DinamicLoad.Assembly_Load_method<IGenericLogger>(libraryPath);
+
                 _genericLogger.loadConfig(configPath);
+
                 _logger = (Logger)_genericLogger.init(_moduleName);
 
+
                 #endregion Logger
+                _logger.Trace("Fin region 'Logger'");
 
                 #region Configuration
                 if (_moduleConfig.configurator.libraryPath != "")
@@ -116,7 +124,9 @@ namespace App
                 {
                     _configurator.addParameter(entry.Key, entry.Value);
                 }
+
                 #endregion Configuration
+                _logger.Trace("Fin region 'Configuration'");
 
                 #region Process
                 string processorName;
@@ -136,34 +146,47 @@ namespace App
                 _processor = (IProcessor)DinamicLoad.DinamicLoad.Assembly_Load_method<IProcessor>(libraryPath);
 
                 #endregion Process
+                _logger.Trace("Fin region 'Process'");
 
                 #region Subscriptors
-                if (_moduleConfig.subscriptors.ToList().Count < 1)
-                    throw new Exception("No se definio ningun susbcriptor");
-                for (int iSubscriptors = 0; iSubscriptors < _moduleConfig.subscriptors.ToList().Count; iSubscriptors++)
+                hasSuscriptor = true; 
+                if (_moduleConfig.subscriptors == null || _moduleConfig.subscriptors.Length < 1)
                 {
-                    var subscriptor = _moduleConfig.subscriptors.ToList()[iSubscriptors];
-                    libraryPath = subscriptor.libraryPath;
-                    string suscriberId = subscriptor.id;
-                    string suscriberName = subscriptor.name;
-                    ISubscriber suscriber = (ISubscriber)DinamicLoad.DinamicLoad.Assembly_Load_method<ISubscriber>(libraryPath);
-                    _dirSubcriber.Add(suscriberId, suscriber);
+                    _logger.Debug("No se definio ningun susbcriptor");
+                    hasSuscriptor = false;
+                }
+                if (hasSuscriptor)
+                {
+                    for (int iSubscriptors = 0; iSubscriptors < _moduleConfig.subscriptors.Length; iSubscriptors++)
+                    {
+                        var subscriptor = _moduleConfig.subscriptors.ToList()[iSubscriptors];
+                        libraryPath = subscriptor.libraryPath;
+                        string suscriberId = subscriptor.id;
+                        string suscriberName = subscriptor.name;
+                        ISubscriber suscriber = (ISubscriber)DinamicLoad.DinamicLoad.Assembly_Load_method<ISubscriber>(libraryPath);
+                        _dirSubcriber.Add(suscriberId, suscriber);
+                    }
                 }
                 #endregion Subscriptors
+                _logger.Trace("Fin region 'Subcriptors'");
 
                 #region Deserializers
-                if (_moduleConfig.deserializers.ToList().Count < 1)
-                    throw new Exception("No se definio ningun deserializador");
-                for (int iDeserializer = 0; iDeserializer < _moduleConfig.deserializers.ToList().Count; iDeserializer++)
+                if (hasSuscriptor)
                 {
-                    var deseializerConfig = _moduleConfig.deserializers.ToList()[iDeserializer];
-                    libraryPath = deseializerConfig.libraryPath;
-                    string deseializerId = deseializerConfig.id;
-                    string deseializerName = deseializerConfig.name;
-                    IDeserializer deserializer = (IDeserializer)DinamicLoad.DinamicLoad.Assembly_Load_method<IDeserializer>(libraryPath);
-                    _dirDeserializer.Add(deseializerId, deserializer);
+                    if (_moduleConfig.deserializers.ToList().Count < 1)
+                        throw new Exception("No se definio ningun deserializador");
+                    for (int iDeserializer = 0; iDeserializer < _moduleConfig.deserializers.ToList().Count; iDeserializer++)
+                    {
+                        var deseializerConfig = _moduleConfig.deserializers.ToList()[iDeserializer];
+                        libraryPath = deseializerConfig.libraryPath;
+                        string deseializerId = deseializerConfig.id;
+                        string deseializerName = deseializerConfig.name;
+                        IDeserializer deserializer = (IDeserializer)DinamicLoad.DinamicLoad.Assembly_Load_method<IDeserializer>(libraryPath);
+                        _dirDeserializer.Add(deseializerId, deserializer);
+                    }
                 }
                 #endregion Deserializers
+                _logger.Trace("Fin region 'Deserializers'");
 
                 #region Serializers
                 bool hasPublish = false;
@@ -180,6 +203,7 @@ namespace App
                         _dirSerializer.Add(serializerId, serializer);
                     }
                     #endregion Serializers
+                    _logger.Trace("Fin region 'Serializers'");
 
                     #region Publishers
                     if (_moduleConfig.publishers.ToList().Count < 0)
@@ -194,6 +218,8 @@ namespace App
                         _dirPublisher.Add(publisherId, publisher);
                     }
                     #endregion Publishers
+                    _logger.Trace("Fin region 'Publishers'");
+
                 }
                 _processor.init(_configurator, _genericLogger, processorId);
 
@@ -225,54 +251,69 @@ namespace App
                     }
                 }
                 #endregion SerializersTrees
+                _logger.Trace("Fin region 'SerializersTrees'");
 
                 #region SubscriptorsTrees
-                if (_moduleConfig.subscriptors_trees.ToList().Count < 1)
-                    throw new Exception("No esta definido ningun arbor de correspondencias de subcripciones");
-                var subscriptorTrees = _moduleConfig.subscriptors_trees.ToList();
-                for (int indexS = 0; indexS < subscriptorTrees.Count; indexS++)
+                if (hasSuscriptor)
                 {
-                    string subscriptorId = subscriptorTrees[indexS].id;
-                    if (subscriptorTrees[indexS].deserializers_ids.ToList().Count < 1)
-                        throw new Exception($"No esta definido ningun deserializador para el subcriptor '{subscriptorId}'");
-                    List<string> deserializerIds = subscriptorTrees[indexS].deserializers_ids.ToList();
-                    ISubscriber tempSubcriptor;
-                    if (!_dirSubcriber.TryGetValue(subscriptorId, out tempSubcriptor))
-                        throw new Exception($"No se encontro el subcriptor '{subscriptorId}' en los subcriptores instanciados");
-                    tempSubcriptor.init(subscriptorId, _configurator, _genericLogger);
-                    for (int indexP = 0; indexP < deserializerIds.Count; indexP++)
+                    if (_moduleConfig.subscriptors_trees.Length < 1)
+                        throw new Exception("No esta definido ningun arbor de correspondencias de subcripciones");
+                    var subscriptorTrees = _moduleConfig.subscriptors_trees.ToList();
+                    for (int indexS = 0; indexS < subscriptorTrees.Count; indexS++)
                     {
-                        IDeserializer tempDeserializer;
-                        if (!_dirDeserializer.TryGetValue(deserializerIds[indexP], out tempDeserializer))
-                            throw new Exception($"No se encontro el deserializador '{deserializerIds[indexP]}' en los deserializadores instanciados");
-                        tempDeserializer.init(deserializerIds[indexP], _configurator, _genericLogger);
-                        tempDeserializer.addProcessor(_processor);
-                        tempSubcriptor.addDeserializer(deserializerIds[indexP], tempDeserializer);
+                        string subscriptorId = subscriptorTrees[indexS].id;
+                        if (subscriptorTrees[indexS].deserializers_ids.ToList().Count < 1)
+                            throw new Exception($"No esta definido ningun deserializador para el subcriptor '{subscriptorId}'");
+                        List<string> deserializerIds = subscriptorTrees[indexS].deserializers_ids.ToList();
+                        ISubscriber tempSubcriptor;
+                        if (!_dirSubcriber.TryGetValue(subscriptorId, out tempSubcriptor))
+                            throw new Exception($"No se encontro el subcriptor '{subscriptorId}' en los subcriptores instanciados");
+                        tempSubcriptor.init(subscriptorId, _configurator, _genericLogger);
+                        for (int indexP = 0; indexP < deserializerIds.Count; indexP++)
+                        {
+                            IDeserializer tempDeserializer;
+                            if (!_dirDeserializer.TryGetValue(deserializerIds[indexP], out tempDeserializer))
+                                throw new Exception($"No se encontro el deserializador '{deserializerIds[indexP]}' en los deserializadores instanciados");
+                            tempDeserializer.init(deserializerIds[indexP], _configurator, _genericLogger);
+                            tempDeserializer.addProcessor(_processor);
+                            tempSubcriptor.addDeserializer(deserializerIds[indexP], tempDeserializer);
+                        }
+                        if (_parameters.Keys.Contains("subId"))
+                        {
+                            tempSubcriptor.subscribe(_parameters["subId"]);
+                        }
+                        else
+                        {
+                            tempSubcriptor.subscribe(null);
+                        }
+                        _Subcribers.Add(tempSubcriptor);
                     }
-                    if (_parameters.Keys.Contains("subId"))
-                    {
-                        tempSubcriptor.subscribe(_parameters["subId"]);
-                    }
-                    else
-                    {
-                        tempSubcriptor.subscribe(null);
-                    }
-                    _Subcribers.Add(tempSubcriptor);
                 }
                 #endregion  SubscriptorsTrees
+                _logger.Trace("Fin region 'SubscriptorTrees'");
 
                 Action<PosixSignalContext> handler = TerminateHandler;
                 PosixSignalRegistration.Create(PosixSignal.SIGTERM, handler);
 
-
                 #region Loop
-                foreach (ISubscriber sus in _Subcribers)
+                if (hasSuscriptor)
                 {
-                    Thread threadSubcriptor = new Thread(sus.startLoop);
+                    foreach (ISubscriber sus in _Subcribers)
+                    {
+                        Thread threadSubcriptor = new Thread(sus.startLoop);
+                        threadSubcriptor.IsBackground = false;
+                        threadSubcriptor.Start();
+                    }
+                }
+                else
+                {
+                    Thread threadSubcriptor = new Thread(loopWithOutSuscriptor);
                     threadSubcriptor.IsBackground = false;
                     threadSubcriptor.Start();
                 }
                 #endregion Loop
+
+
             }
             catch (Exception ex)
             {
@@ -282,11 +323,29 @@ namespace App
             }
         }
 
+        private static void loopWithOutSuscriptor()
+        {
+            while (true)
+            {
+                Task.Delay(50).Wait();
+            }
+        }
+
         public static object GetModuleConfiguration(string path)
         {
-            string strJson = System.IO.File.ReadAllText(path);
-            var allConfig = JsonConvert.DeserializeObject<ModuleMakerConfig.ModuleMakerConfig>(strJson);
-            return allConfig as object;
+            try
+            {
+                string strJson = System.IO.File.ReadAllText(path);
+
+                var allConfig = JsonConvert.DeserializeObject<ModuleMakerConfig.ModuleMakerConfig>(strJson);
+
+                return allConfig as object;
+            }
+            catch(Exception e)
+            {
+                _logger.Error(e.ToString());
+                return null;
+            }
         }
 
         public static bool getParameter(string arg, out string key, out string value)
@@ -307,9 +366,12 @@ namespace App
         static void TerminateHandler(PosixSignalContext context)
         {
             context.Cancel = true;
-            foreach (ISubscriber sus in _Subcribers)
+            if (hasSuscriptor)
             {
-                sus.endLoop();
+                foreach (ISubscriber sus in _Subcribers)
+                {
+                    sus.endLoop();
+                }
             }
             _logger.Debug("Cierre suave del modulo");
             Environment.Exit(0);
